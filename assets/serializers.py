@@ -25,7 +25,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class AssetSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+    photo = serializers.ImageField(use_url=True, required=False)
+    owner = serializers.ReadOnlyField(source='owner.username')
+
     class Meta:
         model = Asset
         fields = '__all__'

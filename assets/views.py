@@ -21,7 +21,7 @@ class AssetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Администратор видит все объекты, обычный пользователь – только свои
+       
         if user.is_staff:
             return Asset.objects.all()
         else:
@@ -30,10 +30,10 @@ class AssetViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def qr(self, request, pk=None):
         asset = self.get_object()
-        # Генерация QR-кода с ссылкой на детальную информацию объекта
         asset_url = f"http://localhost:8000/asset/{asset.id}"
         qr_img = qrcode.make(asset_url)
         buffer = io.BytesIO()

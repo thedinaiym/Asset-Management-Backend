@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 SECRET_KEY = 'django-insecure-880lyj)m&%vczm#7qr5)(7lfzcr=nb5wx4^k21*8^ec7bpip_*'
-DEBUG = True
+DEBUG = True 
 
 ALLOWED_HOSTS = []
 
@@ -71,11 +71,15 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+MEDIA_URL = '/media/'         
+MEDIA_ROOT = BASE_DIR / 'media'  
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+  'DEFAULT_AUTHENTICATION_CLASSES': [
+    'rest_framework_simplejwt.authentication.JWTAuthentication',
+    'rest_framework.authentication.SessionAuthentication',
+  ],
+  # ...
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
