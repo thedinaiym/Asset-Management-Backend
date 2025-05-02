@@ -10,3 +10,14 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('', include(router.urls)),
 ]
+
+
+from django.views.generic import DetailView
+from assets.models import Asset
+
+urlpatterns += [
+    path('asset/<uuid:pk>/', DetailView.as_view(
+        model=Asset,
+        template_name='assets/asset_detail.html'
+    ), name='asset-detail-web'),
+]

@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from django.http import HttpResponse
 import qrcode
 import io
+from django.urls import reverse
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -34,12 +35,16 @@ class AssetViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def qr(self, request, pk=None):
         asset = self.get_object()
-        asset_url = f"http://localhost:8000/asset/{asset.id}"
-        qr_img = qrcode.make(asset_url)
+        # строим абсолютный URL к странице детали
+        url = request.build_absolute_uri(
+            reverse('asset-detail-web', args=[asset.id])
+        )
+        qr_img = qrcode.make(url)
         buffer = io.BytesIO()
         qr_img.save(buffer, format='PNG')
         buffer.seek(0)
         return HttpResponse(buffer, content_type='image/png')
+
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
