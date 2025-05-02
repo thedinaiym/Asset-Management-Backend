@@ -1,4 +1,3 @@
-# .github/workflows/heroku-deploy.yml
 name: Deploy to Heroku from GitHub Actions
 
 on:
@@ -10,7 +9,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -28,13 +28,21 @@ jobs:
         run: |
           echo $HEROKU_API_KEY | docker login --username=_ --password-stdin registry.heroku.com
 
-      - name: Build, push and release
+      - name: Build and push Docker image
         env:
-          HEROKU_APP_NAME: your-app-name
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
         run: |
-          # собираем образ
           docker build -t registry.heroku.com/$HEROKU_APP_NAME/web .
-          # пушим в Heroku Container Registry
           docker push registry.heroku.com/$HEROKU_APP_NAME/web
-          # выпускаем релиз
+
+      - name: Release to Heroku
+        env:
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        run: |
           heroku container:release web --app $HEROKU_APP_NAME
+
+      - name: Scale web dyno to 1
+        env:
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        run: |
+          heroku ps:scale web=1 --app $HEROKU_APP_NAME
