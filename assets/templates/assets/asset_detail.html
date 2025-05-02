@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ asset.title }}</title>
+</head>
+<body>
+  <h1>{{ asset.title }}</h1>
+  <p><strong>Тип:</strong> {{ asset.asset_type }}</p>
+  <p><strong>Описание:</strong> {{ asset.description }}</p>
+  <p><strong>Статус:</strong> {{ asset.get_status_display }}</p>
+  <p><strong>Владелец:</strong> {{ asset.owner.username if asset.owner else "—" }}</p>
+
+  {% if asset.photo %}
+    <img src="{{ asset.photo.url }}" alt="Фото" style="max-width:300px;">
+  {% endif %}
+
+  <h2>QR-код</h2>
+  <!-- endpoint .qr генерит PNG -->
+  <img src="{% url 'asset-qr' asset.id %}" alt="QR code">
+
+  <p>
+    <a href="{% url 'asset-qr-pdf' asset.id %}">
+      Скачать PDF с QR
+    </a>
+  </p>
+</body>
+</html>
