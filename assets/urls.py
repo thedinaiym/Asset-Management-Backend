@@ -1,16 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
-    AssetViewSet,
-    RegisterView,
-    UserViewSet,
-    ProfileView,
-    ChangePasswordView
-)
+from .views import AssetViewSet, RegisterView, ProfileView, ChangePasswordView
 
 router = DefaultRouter()
 router.register(r'assets', AssetViewSet, basename='asset')
-router.register(r'users', UserViewSet, basename='user')
+# router.register(r'users', UserViewSet, basename='user')  # Удалили
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
