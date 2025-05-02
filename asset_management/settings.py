@@ -2,43 +2,67 @@ import os
 from pathlib import Path
 import dj_database_url
 
-SECRET_KEY = 'django-insecure-880lyj)m&%vczm#7qr5)(7lfzcr=nb5wx4^k21*8^ec7bpip_*'
-DEBUG = True 
+# ------------------------------------------------------------------------------
+# BASICS
+# ------------------------------------------------------------------------------
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-ALLOWED_HOSTS = []
+# SECURITY
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-локальный-секрет')
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
+# Разрешённые хосты (через запятую в переменной окружения)
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
+# ------------------------------------------------------------------------------
+# APPLICATIONS
+# ------------------------------------------------------------------------------
 INSTALLED_APPS = [
+    # Django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party
     'rest_framework',
-    'assets',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    
+    # Your apps
+    'assets',
 ]
 
+# ------------------------------------------------------------------------------
+# MIDDLEWARE
+# ------------------------------------------------------------------------------
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', 
+    # безоп. middleware должен быть первым
     'django.middleware.security.SecurityMiddleware',
+    # Whitenoise для отдачи статики
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    # CORS
+    'corsheaders.middleware.CorsMiddleware',
+    # Стандартные Django middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'asset_management.urls'
 
+# ------------------------------------------------------------------------------
+# TEMPLATES
+# ------------------------------------------------------------------------------
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [],  # добавьте пути, если используете свои шаблоны
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -53,49 +77,75 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'asset_management.wsgi.application'
 
+# ------------------------------------------------------------------------------
+# DATABASES
+# ------------------------------------------------------------------------------
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',  
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=not DEBUG
+    )
 }
 
-DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
-
+# ------------------------------------------------------------------------------
+# PASSWORD VALIDATION
+# ------------------------------------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    # можно добавить:
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    # },
 ]
 
+# ------------------------------------------------------------------------------
+# INTERNATIONALIZATION
+# ------------------------------------------------------------------------------
 LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+# ------------------------------------------------------------------------------
+# STATIC & MEDIA
+# ------------------------------------------------------------------------------
+# URL для статики
 STATIC_URL = '/static/'
-MEDIA_URL = '/media/'         
-MEDIA_ROOT = BASE_DIR / 'media'  
-
-REST_FRAMEWORK = {
-  'DEFAULT_AUTHENTICATION_CLASSES': [
-    'rest_framework_simplejwt.authentication.JWTAuthentication',
-    'rest_framework.authentication.SessionAuthentication',
-  ],
-  # ...
-}
-
-CORS_ALLOW_ALL_ORIGINS = True
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-import os
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Куда Django будет собирать статику
+# Каталог, куда collectstatic будет складывать файлы
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Уже должно быть
-STATIC_URL = '/static/'
-
-# Whitenoise для отдачи статики
+# Хранилище статики через Whitenoise
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# URL и каталог для медиа (загрузок)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ------------------------------------------------------------------------------
+# REST FRAMEWORK
+# ------------------------------------------------------------------------------
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    # 'DEFAULT_PERMISSION_CLASSES': [...], и т.д.
+}
+
+# ------------------------------------------------------------------------------
+# CORS
+# ------------------------------------------------------------------------------
+CORS_ALLOW_ALL_ORIGINS = True
+
+# ------------------------------------------------------------------------------
+# DEFAULT PRIMARY KEY FIELD
+# ------------------------------------------------------------------------------
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
