@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
+import dj_database_url
 
 SECRET_KEY = 'django-insecure-880lyj)m&%vczm#7qr5)(7lfzcr=nb5wx4^k21*8^ec7bpip_*'
 DEBUG = True 
@@ -31,6 +30,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'asset_management.urls'
@@ -60,6 +60,8 @@ DATABASES = {
     }
 }
 
+DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
+
 AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
     { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
@@ -84,3 +86,16 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+import os
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Куда Django будет собирать статику
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Уже должно быть
+STATIC_URL = '/static/'
+
+# Whitenoise для отдачи статики
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
