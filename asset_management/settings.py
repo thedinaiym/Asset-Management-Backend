@@ -12,8 +12,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-локальный-с
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # Разрешённые хосты (через запятую в переменной окружения)
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
-
+#ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = ['audit-check-inspection-651e17ed7c11.herokuapp.com']
 # ------------------------------------------------------------------------------
 # APPLICATIONS
 # ------------------------------------------------------------------------------
