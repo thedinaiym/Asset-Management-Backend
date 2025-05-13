@@ -1,7 +1,7 @@
+
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
-
 class Asset(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     asset_type = models.CharField(max_length=50, help_text="Тип имущества (мебель, устройство и т.д.)")
@@ -30,6 +30,7 @@ class Asset(models.Model):
         related_name='pending_assets',
         help_text="Кто запросил сейчас"
     )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)# ← новое поле
 
     def __str__(self):
         return self.title

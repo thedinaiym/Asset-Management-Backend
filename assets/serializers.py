@@ -31,8 +31,11 @@ class AssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = '__all__'
-
+        # явно перечислим поля, чтобы добавить created_at
+        fields = [
+            'id','asset_type','title','description','photo',
+            'owner','pending_user','status','created_at'
+        ]
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True)
