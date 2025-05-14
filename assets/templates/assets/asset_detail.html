@@ -9,17 +9,24 @@
   <p><strong>Тип:</strong> {{ asset.asset_type }}</p>
   <p><strong>Описание:</strong> {{ asset.description }}</p>
   <p><strong>Статус:</strong> {{ asset.get_status_display }}</p>
-  <p><strong>Владелец:</strong> {{ asset.owner.username if asset.owner else "—" }}</p>
+  <p><strong>Владелец:</strong>
+    {% if asset.owner %}
+      {{ asset.owner.username }}
+    {% else %}
+      —
+    {% endif %}
+  </p>
 
   {% if asset.photo %}
     <img src="{{ asset.photo.url }}" alt="Фото" style="max-width:300px;">
   {% endif %}
 
   <h2>QR-код</h2>
-  <!-- endpoint .qr генерит PNG -->
-  <img src="{% url 'asset-qr' asset.id %}" alt="QR code">
+  <!-- Для API-png достаточно GET без авторизации (только проверка сессии админа) -->
+  <img src="{% url 'asset-qr' asset.id %}" alt="QR code" width="150" height="150">
 
   <p>
+    <!-- Для скачивания PDF делаем запрос с авторизацией -->
     <a href="{% url 'asset-qr-pdf' asset.id %}">
       Скачать PDF с QR
     </a>
