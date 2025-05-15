@@ -89,3 +89,56 @@ class UsersWithAssetsView(generics.ListAPIView):
     def get_queryset(self):
         # только не-админы
         return User.objects.filter(is_staff=False).prefetch_related('asset_set')
+# assets/views.py
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.contrib.auth.models import User
+
+from .models       import Asset
+from .serializers  import AssetSerializer, RegisterSerializer, UserSerializer
+
+class AssetViewSet(ModelViewSet):
+    serializer_class    = AssetSerializer
+    permission_classes  = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # whoever POSTs an asset becomes its owner
+        serializer.save(owner=self.request.user)
+
+    def get_queryset(self):
+        user = self.request.user
+        # Staff see everything; regular users see only their own
+        qs = Asset.objects.all() if user.is_staff else Asset.objects.filter(owner=user)
+
+        # If logged in as staff, allow filtering to a particular owner:
+        owner_id = self.request.query_params.get("owner")
+        if owner_id and user.is_staff:
+            qs = qs.filter(owner__id=owner_id)
+
+        return qs.order_by("-created_at")
+
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail":"ok"}, status=201)
+
+
+class UsersWithAssetsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # list *non-staff* users + how many assets they own
+        users = User.objects.filter(is_staff=False)
+        data = []
+        for u in users:
+            data.append({
+                "id":            u.id,
+                "username":      u.username,
+                "assets_count":  Asset.objects.filter(owner=u).count(),
+            })
+        return Response(data)
