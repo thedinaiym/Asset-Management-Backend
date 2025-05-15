@@ -37,6 +37,12 @@ class Asset(models.Model):
         default='pending'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-
+    action_type = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',     # теперь будет всегда хотя бы 'pending'
+        null=True,             # и, на всякий случай, разрешаем NULL
+        blank=True
+    )
     def __str__(self):
         return self.title
