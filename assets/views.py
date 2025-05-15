@@ -21,6 +21,13 @@ from .serializers import (
 )
 
 
+from rest_framework import viewsets, generics
+from django.contrib.auth.models import User
+from .serializers import UserSerializer
+
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = User.objects.filter(is_staff=False)
+    serializer_class = UserSerializer
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
