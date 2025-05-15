@@ -1,68 +1,65 @@
-# assets/views.py
-
-from rest_framework import viewsets, generics, status, filters
-from rest_framework.permissions import IsAuthenticated, AllowAny
+import io
+import qrcode
+from django.urls import reverse
+from django.http import HttpResponse
+from django.contrib.auth.models import User
+from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.views import APIView
-from django.contrib.auth.models import User
-from django.urls import reverse
-from django.http import HttpResponse
-import qrcode
-import io
 from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
 
 from .models import Asset
-from .serializers import (
-    AssetSerializer,
-    RegisterSerializer,
-    UserSerializer,
-    ChangePasswordSerializer
-)
+from .serializers import AssetSerializer, RegisterSerializer, UserSerializer
 
-
-from rest_framework import viewsets, generics
-from django.contrib.auth.models import User
-from .serializers import UserSerializer
-
-class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = User.objects.filter(is_staff=False)
-    serializer_class = UserSerializer
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    permission_classes = [AllowAny]
-    serializer_class = RegisterSerializer
-
+class RegisterView(APIView):
+    permission_classes = []  # open registration
+    def post(self, request):
+        ser = RegisterSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user = ser.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 class AssetViewSet(viewsets.ModelViewSet):
+    """
+    CRUD + дополнительные действия:
+      - PATCH            : смена любых полей (только для админа)
+      - POST  approve    : одобрение pending-заявки (существовал раньше)
+      - POST  deny       : отклонение pending-заявки
+      - POST  return     : возврат assigned-asset пользователем
+      - GET   qr         : PNG-QR
+      - GET   qr_pdf     : PDF-QR
+    """
     queryset = Asset.objects.all()
     serializer_class = AssetSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
-    search_fields = ['owner__username']
 
     def get_queryset(self):
         user = self.request.user
-        qs = Asset.objects.all() if user.is_staff else Asset.objects.filter(owner=user)
-        owner_id = self.request.query_params.get('owner')
-        if owner_id:
-            qs = qs.filter(owner__id=owner_id)
-        return qs
+        if user.is_staff:
+            return Asset.objects.all()
+        return Asset.objects.filter(models.Q(owner=user) | models.Q(pending_user=user))
 
     def perform_create(self, serializer):
         user = self.request.user
+        # если админ — сразу assigned, иначе pending
         if user.is_staff:
             serializer.save(owner=user, status='assigned')
         else:
-            serializer.save(owner=None, status='pending', pending_user=user)
+            serializer.save(pending_user=user, status='pending')
 
     def partial_update(self, request, *args, **kwargs):
-        # Разрешаем редактировать только админам
+        """
+        PATCH /api/assets/<id>/ — доступно только для админа
+        """
         if not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
         return super().partial_update(request, *args, **kwargs)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         asset = self.get_object()
         if not request.user.is_staff or asset.status != 'pending':
@@ -71,9 +68,9 @@ class AssetViewSet(viewsets.ModelViewSet):
         asset.status = 'assigned'
         asset.pending_user = None
         asset.save()
-        return Response(self.get_serializer(asset).data)
+        return Response(AssetSerializer(asset, context={'request': request}).data)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def deny(self, request, pk=None):
         asset = self.get_object()
         if not request.user.is_staff or asset.status != 'pending':
@@ -83,7 +80,21 @@ class AssetViewSet(viewsets.ModelViewSet):
         asset.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
+    def return_asset(self, request, pk=None):
+        """
+        Пользователь возвращает своё assigned-имущество
+        POST /api/assets/<id>/return/
+        """
+        asset = self.get_object()
+        if asset.status != 'assigned' or asset.owner != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        asset.status = 'free'
+        asset.owner = None
+        asset.save()
+        return Response(AssetSerializer(asset, context={'request': request}).data)
+
+    @action(detail=True, methods=['get'])
     def qr(self, request, pk=None):
         asset = self.get_object()
         url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]))
@@ -93,42 +104,45 @@ class AssetViewSet(viewsets.ModelViewSet):
         buf.seek(0)
         return HttpResponse(buf, content_type='image/png')
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['get'])
     def qr_pdf(self, request, pk=None):
         asset = self.get_object()
-        # Генерируем ссылку на веб-деталку
-        url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]))
-        # Сначала создаём PNG-изображение QR
-        img = qrcode.make(url)
-        buf_img = io.BytesIO()
-        img.save(buf_img, format='PNG')
-        buf_img.seek(0)
-        # Затем создаём PDF и вставляем туда картинку
-        buf_pdf = io.BytesIO()
-        p = canvas.Canvas(buf_pdf)
-        p.drawInlineImage(buf_img, 100, 500, 200, 200)  # координаты и размер можно настроить
-        p.showPage()
-        p.save()
-        buf_pdf.seek(0)
-        return HttpResponse(buf_pdf, content_type='application/pdf')
+        # строим URL для встраивания в QR
+        url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]]))
+        qr_img = qrcode.make(url)
+        # рисуем PDF
+        packet = io.BytesIO()
+        c = canvas.Canvas(packet, pagesize=letter)
+        # конвертим PIL→ImageReader
+        tmp = io.BytesIO()
+        qr_img.save(tmp, format='PNG')
+        tmp.seek(0)
+        c.drawImage(ImageReader(tmp), 100, 500, width=200, height=200)
+        c.showPage()
+        c.save()
+        packet.seek(0)
+        response = HttpResponse(packet, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="asset_{asset.id}_qr.pdf"'
+        return response
 
-
-class ProfileView(APIView):
+class UsersWithAssetsView(APIView):
+    """
+    GET /api/users-with-assets/ — для админа
+    выдаёт [{id, username, assets: [...]}, …]
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
-
-
-class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        serializer = ChangePasswordSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        request.user.set_password(serializer.validated_data['new_password'])
-        request.user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        users = User.objects.filter(is_staff=False)
+        data = []
+        for u in users:
+            assets = Asset.objects.filter(owner=u)
+            ser = AssetSerializer(assets, many=True, context={'request': request})
+            data.append({
+                'id': u.id,
+                'username': u.username,
+                'assets': ser.data
+            })
+        return Response(data)

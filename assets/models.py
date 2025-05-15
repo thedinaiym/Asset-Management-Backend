@@ -1,43 +1,41 @@
-
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
-import uuid 
-from django.utils import timezone
+
+STATUS_CHOICES = [
+    ('free', 'Free'),
+    ('pending', 'Pending'),
+    ('assigned', 'Assigned'),
+]
 
 class Asset(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    asset_type = models.CharField(max_length=50)
-    title = models.CharField(max_length=100)
+    title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    photo = models.ImageField(upload_to='assets/', blank=True, null=True)
+    asset_type = models.CharField(max_length=100)
+    photo = models.ImageField(upload_to='photos/', null=True, blank=True)
 
     owner = models.ForeignKey(
-        User, on_delete=models.CASCADE,
-        related_name='assets', null=True, blank=True
+        User,
+        null=True,
+        blank=True,
+        related_name='assets',
+        on_delete=models.SET_NULL
     )
     pending_user = models.ForeignKey(
-        User, on_delete=models.SET_NULL,
-        related_name='pending_assets', null=True, blank=True
+        User,
+        null=True,
+        blank=True,
+        related_name='pending_assets',
+        on_delete=models.SET_NULL
     )
 
-    STATUS_CHOICES = [
-        ('free', 'Свободно'),
-        ('pending', 'Ожидание'),
-        ('assigned', 'Назначено'),
-    ]
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='free')
-    created_at = models.DateTimeField(null=True, default=timezone.now)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='free')
 
-    # Для возврата/бере́на
-    action_type = models.CharField(max_length=10, choices=[('take','Беру'),('return','Возвращаю')], blank=True)
-    linked_asset = models.ForeignKey(
-        'self', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='returns', help_text='При возврате — ссылка на взятую ранее'
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    # Оценка состояния при возврате
-    rating_before = models.PositiveSmallIntegerField(null=True, blank=True)
-    rating_after = models.PositiveSmallIntegerField(null=True, blank=True)
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
-        return self.title
+        return f"{self.title} ({self.status})"
