@@ -18,6 +18,13 @@ from .serializers import (
     ChangePasswordSerializer
 )
 
+import qrcode, io
+from reportlab.pdfgen import canvas
+
+from .models import Asset
+from .serializers import AssetSerializer, RegisterSerializer, UserSerializer, ChangePasswordSerializer
+
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -38,6 +45,9 @@ class AssetViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['owner__username']
 
+    def get_serializer_context(self):
+        return {'request': self.request}
+
     def get_queryset(self):
         user = self.request.user
         qs = Asset.objects.all() if user.is_staff else Asset.objects.filter(owner=user)
@@ -49,27 +59,25 @@ class AssetViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_staff:
-            serializer.save()
+            serializer.save(status='free')  # админ создаёт сразу free
         else:
-            serializer.save(owner=None, status='pending', pending_user=user)
+            serializer.save(pending_user=user, status='pending')
 
-    def partial_update(self, request, *args, **kwargs):
-        if not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().partial_update(request, *args, **kwargs)
-
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='approve')
-    def approve(self, request, pk=None):
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='assign')
+    def assign(self, request, pk=None):
         asset = self.get_object()
-        asset.status = 'approved'
+        asset.status = 'assigned'
+        # назначаем владельцем того, кто запросил
+        asset.owner = asset.pending_user
         asset.pending_user = None
         asset.save()
         return Response(self.get_serializer(asset).data)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='deny')
-    def deny(self, request, pk=None):
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='free')
+    def free(self, request, pk=None):
         asset = self.get_object()
-        asset.status = 'denied'
+        asset.status = 'free'
+        asset.owner = None
         asset.pending_user = None
         asset.save()
         return Response(self.get_serializer(asset).data)
@@ -77,30 +85,16 @@ class AssetViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated], url_path='qr', url_name='asset-qr')
     def qr(self, request, pk=None):
         asset = self.get_object()
-        url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]))
+        # доступна только если assigned
+        if asset.status != 'assigned':
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        url = request.build_absolute_uri(
+            reverse('asset-detail-web', args=[asset.id])
+        )
         img = qrcode.make(url)
         buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        buf.seek(0)
+        img.save(buf, format='PNG'); buf.seek(0)
         return HttpResponse(buf, content_type='image/png')
-
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated], url_path='qr-pdf', url_name='asset-qr-pdf')
-    def qr_pdf(self, request, pk=None):
-        asset = self.get_object()
-        url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]))
-        img = qrcode.make(url)
-        buf_img = io.BytesIO()
-        img.save(buf_img, format='PNG')
-        buf_img.seek(0)
-        buf_pdf = io.BytesIO()
-        p = canvas.Canvas(buf_pdf)
-        p.drawInlineImage(buf_img, 100, 500, 200, 200)
-        p.showPage()
-        p.save()
-        buf_pdf.seek(0)
-        return HttpResponse(buf_pdf, content_type='application/pdf')
-
-
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
