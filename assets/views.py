@@ -108,7 +108,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     def qr_pdf(self, request, pk=None):
         asset = self.get_object()
         # строим URL для встраивания в QR
-        url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]]))
+        url = request.build_absolute_uri(reverse('asset-detail-web', args=[asset.id]))
         qr_img = qrcode.make(url)
         # рисуем PDF
         packet = io.BytesIO()
