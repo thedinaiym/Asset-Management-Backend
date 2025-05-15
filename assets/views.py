@@ -48,6 +48,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         return {'request': self.request}
 
+
     def get_queryset(self):
         user = self.request.user
         qs = Asset.objects.all() if user.is_staff else Asset.objects.filter(owner=user)
