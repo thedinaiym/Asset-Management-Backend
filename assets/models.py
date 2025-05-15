@@ -1,7 +1,9 @@
 
 from django.db import models
 from django.contrib.auth.models import User
-import uuid
+import uuid 
+from django.utils import timezone
+
 class Asset(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     asset_type = models.CharField(max_length=50)
@@ -24,7 +26,7 @@ class Asset(models.Model):
         ('assigned', 'Назначено'),
     ]
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='free')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(null=True, default=timezone.now)
 
     # Для возврата/бере́на
     action_type = models.CharField(max_length=10, choices=[('take','Беру'),('return','Возвращаю')], blank=True)
